@@ -1,6 +1,6 @@
 import numpy as np
 
-from knnsvdup.helper import distance, kernel_value, approx_harmonic_sum
+from knnsvdup.helper import distance, approx_harmonic_sum
 
 
 def shapley(D, Z_test, K, kernel_fn=None, scaler=1e8):
