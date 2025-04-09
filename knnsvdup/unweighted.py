@@ -33,7 +33,7 @@ def shapley_unweighted_bf_single(D, z_test, K):
     """
     x_test, y_test = z_test
     n = len(D)
-    if n == 0:
+    if n == 0 or n == 1 or n < K: # assume n >= 2 and n >= K
         return np.array([])
     
     # Calculate distances and sort
@@ -41,24 +41,41 @@ def shapley_unweighted_bf_single(D, z_test, K):
     dxy_idx = list(range(len(dxy)))    
     sorted_dxy_idx = sorted(dxy_idx, key=lambda i: dxy[i][0]) # argsort
     
-    # Extract label matches
+    # Extract label matches (1 if label matches test point, 0 otherwise)
     y_match = [1 if dxy[i][2] == y_test else 0 for i in sorted_dxy_idx]
     
     # Initialize Shapley values array
     s = np.zeros(n)
     
-    # Base case: farthest point
+    # Compute number of classes (assuming C classes)
+    unique_labels = set(y for _, y in D)
+    C = len(unique_labels)
+    
+    # Base case: compute for the farthest point (n-th point)
     idx_n = sorted_dxy_idx[-1]
-    s[idx_n] = (K/len(sorted_dxy_idx)) * y_match[-1]
+    
+    # Compute sum_{j=1}^{n-1} 1/(j+1)
+    harmonic_sum1 = sum(1/(j+1) for j in range(1, n))
+    harmonic_sum2 = 1 + harmonic_sum1 # equals to sum(1/j for j in range(1, n+1))
+    
+    # Average label match for the first n-1 points
+    avg_match_n_minus_1 = sum(y_match[:-1]) / (n-1)
+    
+    # Compute base case s_n
+    s[idx_n] = (1/n) * (y_match[-1] - avg_match_n_minus_1) * harmonic_sum1 + (y_match[-1] - 1/C) / n
     
     # Recursive calculation from 2nd farthest to nearest
-    for j in range(len(sorted_dxy_idx)-2, -1, -1):
-        i_plus_1 = j + 1  # Convert to 1-based index
-        idx_j = sorted_dxy_idx[j]
-        idx_j_plus_1 = sorted_dxy_idx[j+1]
-        term = (min(K, i_plus_1)/i_plus_1) * (
-            y_match[j] - y_match[j+1]
-        )
-        s[idx_j] = s[idx_j_plus_1] + term
+    for j in range(n-2, -1, -1):
+        i = j + 1  # Convert to 1-based index
+        idx_i = sorted_dxy_idx[j]
+        idx_i_plus_1 = sorted_dxy_idx[j+1]
+        
+        # Compute the adjustment term
+        adjustment = (1/K) * ((min(K, i) * (n-1) / i) - K)
+        
+        # Compute the difference in recursive formula
+        term = (y_match[j] - y_match[j+1]) / (n-1) * (harmonic_sum2 + adjustment)
+        
+        s[idx_i] = s[idx_i_plus_1] + term
         
     return s 
