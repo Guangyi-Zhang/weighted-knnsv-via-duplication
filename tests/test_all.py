@@ -3,7 +3,7 @@ import numpy as np
 from functools import partial
 
 from knnsvdup.helper import distance, kernel_value
-from knnsvdup.unweighted import shapley
+from knnsvdup.dup import shapley
 
 
 def test_shapley_dup():
