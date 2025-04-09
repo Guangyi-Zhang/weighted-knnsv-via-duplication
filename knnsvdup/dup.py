@@ -1,6 +1,6 @@
 import numpy as np
 
-from knnsvdup.helper import distance, kernel_value
+from knnsvdup.helper import distance, kernel_value, approx_harmonic_sum
 
 
 def shapley(D, Z_test, K, kernel_fn=None, scaler=1e8):
@@ -132,15 +132,15 @@ def shapley_dup_single(D, z_test, K, kernel_fn, scaler=1e8):
     weight_n = w[-1]
     
     # Compute sum_{j=1}^{n'-1} 1/(j+1)
-    harmonic_sum = sum(1/(j+1) for j in range(1, int(n_prime))) # TODO: use an approximation for large n_prime
-    harmonic_sum2 = 1 + harmonic_sum # equals to sum(1/j for j in range(1, int(n_prime)+1))
+    harmonic_sum = approx_harmonic_sum(n_prime)
+    harmonic_sum_minus_1 = harmonic_sum - 1
     
     # Average weighted label match for the first n-1 points
     weighted_sum_others = sum(w[i] * y_match[i] for i in range(n-1))
     avg_match_term = ((weight_n - 1) * y_match[-1] + weighted_sum_others) / (n_prime - 1)
     
     # Compute base case s_n
-    s[idx_n] = (weight_n / n_prime) * (y_match[-1] - avg_match_term) * harmonic_sum + (y_match[-1] - 1/C) / n_prime
+    s[idx_n] = (weight_n / n_prime) * (y_match[-1] - avg_match_term) * harmonic_sum_minus_1 + (y_match[-1] - 1/C) / n_prime
     
     # Recursive calculation from 2nd farthest to nearest
     for j in range(n-2, -1, -1):
@@ -154,7 +154,7 @@ def shapley_dup_single(D, z_test, K, kernel_fn, scaler=1e8):
         adjustment = (1/K_prime) * ((min(K_prime, i_prime) * (n_prime-1) / i_prime) - K_prime)
         
         # Compute the difference in recursive formula
-        term = w[j] * (y_match[j] - y_match[j+1]) / (n_prime-1) * (harmonic_sum2 + adjustment)
+        term = w[j] * (y_match[j] - y_match[j+1]) / (n_prime-1) * (harmonic_sum + adjustment)
         
         s[idx_i] = s[idx_i_plus_1] + term
         

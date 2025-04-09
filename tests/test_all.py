@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 from functools import partial
 
-from knnsvdup.helper import distance, kernel_value
+from knnsvdup.helper import distance, kernel_value, approx_harmonic_sum
 from knnsvdup.dup import shapley
 
 
@@ -34,3 +34,13 @@ def test_shapley_unweighted():
     answer = [0.80555556,  0.30555556, -0.61111111]
 
     assert np.allclose(shapley_values, answer, atol=1e-03)
+
+
+def test_harmonic_sum():
+    sums, sums_real = [], []
+    real = 0
+    for i in range(1, 1000000):
+        sums.append(approx_harmonic_sum(i))
+        real += 1/i
+        sums_real.append(real)
+    assert np.allclose(sums, sums_real, atol=1e-07)
