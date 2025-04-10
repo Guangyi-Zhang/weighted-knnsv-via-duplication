@@ -5,7 +5,7 @@ from knnsvdup.helper import distance, approx_harmonic_sum
 
 def shapley(D, Z_test, K, kernel_fn=None, scaler=1e8):
     """
-    Compute Shapley values for unweighted KNN using brute force.
+    Compute KNN Shapley values for multiple test points.
     """
     if not isinstance(Z_test, list):
         Z_test = [Z_test]
@@ -143,12 +143,13 @@ def shapley_dup_single(D, z_test, K, kernel_fn, scaler=1e8):
     s[idx_n] = (weight_n / n_prime) * (y_match[-1] - avg_match_term) * harmonic_sum_minus_1 + (y_match[-1] - 1/C) / n_prime
     
     # Recursive calculation from 2nd farthest to nearest
+    i_prime = n_prime
     for j in range(n-2, -1, -1):
         idx_i = sorted_dxy_idx[j]
         idx_i_plus_1 = sorted_dxy_idx[j+1]
         
         # Calculate i' = sum of weights up to current point
-        i_prime = sum(w[:j+1])
+        i_prime -= w[j+1]
         
         # Compute the adjustment term
         adjustment = (1/K_prime) * ((min(K_prime, i_prime) * (n_prime-1) / i_prime) - K_prime)
