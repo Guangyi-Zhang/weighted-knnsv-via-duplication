@@ -4,7 +4,7 @@ import math
 from knnsvdup.helper import distance, approx_harmonic_sum
 
 
-def shapley(D, Z_test, K, kernel_fn=None, scaler=1e8):
+def shapley(D, Z_test, K, kernel_fn=None, scaler=1e8, n_perms=None):
     """
     Compute KNN Shapley values for multiple test points.
     """
@@ -16,8 +16,10 @@ def shapley(D, Z_test, K, kernel_fn=None, scaler=1e8):
     for i in range(n_test):
         if kernel_fn is None:
             s = shapley_unweighted_single(D, Z_test[i], K)
-        else:
+        elif n_perms is None:
             s = shapley_dup_single(D, Z_test[i], K, kernel_fn, scaler)
+        else:
+            s = shapley_mc_single(D, Z_test[i], K, kernel_fn, n_perms)
         shapley_values += s
 
     return shapley_values / n_test
@@ -164,3 +166,86 @@ def shapley_dup_single(D, z_test, K, kernel_fn, scaler=1e8):
         s[idx_i] = s[idx_i_plus_1] + term
         
     return s 
+
+
+def shapley_mc_single(D, z_test, K, kernel_fn, n_perms=1000):
+    """
+    Compute Shapley values for weighted KNN using Monte Carlo sampling.
+    
+    Args:
+        D: List of tuples (x, y) where x is feature vector, y is label
+        z_test: Test point tuple (x_test, y_test)
+        K: Number of neighbors for KNN
+        kernel_fn: Kernel function to compute weights
+        n_perms: Number of permutations to sample
+        
+    Returns:
+        Array of Shapley values for each data point
+    """
+    x_test, y_test = z_test
+    n = len(D)
+    if n == 0 or n == 1:
+        return np.array([])
+    
+    # Calculate distances and corresponding features and labels
+    dxy = [(distance(x, x_test), x, y) for x, y in D]
+    
+    # Store distances for each point
+    distances = [d for d, _, _ in dxy]
+    
+    # Extract label matches (1 if label matches test point, 0 otherwise)
+    y_match = [1 if y == y_test else 0 for _, _, y in dxy]
+    
+    # Compute weights for each point using the kernel function
+    weights = [kernel_fn(d) for d in distances]
+    
+    # Compute number of classes
+    unique_labels = set(y for _, y in D)
+    C = len(unique_labels)
+    
+    # Initialize Shapley values array
+    s = np.zeros(n)
+    
+    # Monte Carlo sampling - sample n_perms permutations
+    for _ in range(n_perms):
+        # Sample a random permutation
+        perm = np.random.permutation(n)
+        
+        # For each position in the permutation, calculate marginal contribution
+        subset = []  # Keep track of indices in the coalition so far
+        utility_prev = 1 / C  # Default prediction without any points
+        
+        for pos, idx in enumerate(perm):
+            # Add current index to the subset
+            subset.append(idx)
+
+            # Keep only the K nearest neighbors
+            if len(subset) > K:
+                # Sort subset by distance
+                subset_dist = [(distances[i], i) for i in subset]
+                sorted_subset = [i for _, i in sorted(subset_dist)]
+                
+                # Get K nearest neighbors from the subset
+                knn_indices = sorted_subset[:K]
+            else:
+                knn_indices = subset
+            
+            # Calculate utility with the current coalition
+            weighted_sum = sum(weights[i] * y_match[i] for i in knn_indices)
+            weight_sum = sum(weights[i] for i in knn_indices)
+            utility_curr = weighted_sum / weight_sum if weight_sum > 0 else 1 / C
+            
+            # Marginal contribution is the difference in utilities
+            marginal = utility_curr - utility_prev
+            
+            # Add marginal contribution to Shapley value
+            s[idx] += marginal
+            
+            # Update previous utility for next iteration
+            utility_prev = utility_curr
+    
+    # Average over all permutations
+    s /= n_perms
+    
+    return s
+    
