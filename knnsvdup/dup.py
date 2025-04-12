@@ -112,7 +112,7 @@ def shapley_dup_single(D, z_test, K, kernel_fn, scaler=1e8):
     w_real = [kernel_fn(dxy[i][0]) for i in sorted_dxy_idx]
     #w = [math.ceil(w_ * scaler) for w_ in w_real] # try rounding to ceil
     w = [int(w_ * scaler) for w_ in w_real] # round to zero if w < 1/scaler
-    if w[0] < 1:
+    if w[0] < 1 or (w[0] == 1 and w[1] < 1):
         w = [1] * len(w) # back to unweighted if w too small
     
     # Calculate n' = sum of all weights
