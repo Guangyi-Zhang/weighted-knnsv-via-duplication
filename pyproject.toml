@@ -12,4 +12,11 @@ dependencies = [
     "pip>=25.0.1",
     "pytest>=8.3.5",
     "scikit-learn>=1.6.1",
+    "scipy>=1.15.2",
+    "tqdm>=4.67.1",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.11.5",
 ]
