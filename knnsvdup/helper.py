@@ -6,6 +6,8 @@ def get_knn_acc(X_train, y_train, X_val, y_val, K, kernel_fn, C=None):
     if C is None:
         unique_labels = set(y_train)
         C = len(unique_labels)
+    if kernel_fn is None:
+        kernel_fn = lambda d: 1
 
     acc = 0
 

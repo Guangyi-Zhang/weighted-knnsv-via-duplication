@@ -16,7 +16,7 @@ def test_shapley_dup():
     sigma = 1
     kernel_fn = partial(kernel_value, sigma=sigma)
    
-    shapley_values = shapley(D, z_test, K=1, kernel_fn=kernel_fn)
+    shapley_values = shapley(D, z_test, K=1, value_type="dup", kernel_fn=kernel_fn)
     answer = [ 4.30470185,  0.59768083, -4.40238268]
 
     assert np.allclose(shapley_values, answer, atol=1e-03)
@@ -30,12 +30,12 @@ def test_shapley_unweighted():
     ]
     z_test = (np.array([0.0]), 1)
 
-    shapley_values = shapley(D, z_test, K=1)
+    shapley_values = shapley(D, z_test, K=1, value_type="unweighted")
     answer = [0.80555556,  0.30555556, -0.61111111]
 
     assert np.allclose(shapley_values, answer, atol=1e-03)
 
-
+    
 def test_harmonic_sum():
     sums, sums_real = [], []
     real = 0
@@ -83,11 +83,14 @@ def test_shapley_mc_single():
     # Set a fixed seed for reproducibility
     np.random.seed(42)
     
-    shapley_values = shapley(D, z_test, K=1, kernel_fn=kernel_fn, n_perms=1000)
+    shapley_values = shapley(D, z_test, K=1, value_type="mc", kernel_fn=kernel_fn, n_perms=1000)
     expected_approx = [ 0.6709,  0.1671, -0.338 ]
     assert np.allclose(shapley_values, expected_approx, atol=1e-01)
     
     # Also verify that increasing the number of permutations reduces variance
     np.random.seed(42)
-    shapley_values_more_perms = shapley(D, z_test, K=1, kernel_fn=kernel_fn, n_perms=5000)
+    shapley_values_more_perms = shapley(D, z_test, K=1, value_type="mc", kernel_fn=kernel_fn, n_perms=5000)
     assert np.allclose(shapley_values_more_perms, expected_approx, atol=1e-03)
+
+    shapley_values_bf = shapley(D, z_test, K=1, value_type="bf")
+    assert np.allclose(shapley_values_more_perms, shapley_values_bf, atol=0.03)

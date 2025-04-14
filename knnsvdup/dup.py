@@ -1,10 +1,11 @@
 import numpy as np
 import math
+import itertools
 
-from knnsvdup.helper import distance, approx_harmonic_sum
+from knnsvdup.helper import distance, approx_harmonic_sum, get_knn_acc
 
 
-def shapley(D, Z_test, K, kernel_fn=None, scaler=1e8, n_perms=None):
+def shapley(D, Z_test, K, value_type="unweighted", kernel_fn=None, scaler=1e8, n_perms=None):
     """
     Compute KNN Shapley values for multiple test points.
     """
@@ -14,15 +15,73 @@ def shapley(D, Z_test, K, kernel_fn=None, scaler=1e8, n_perms=None):
     n_test = len(Z_test)
     shapley_values = np.zeros(len(D))
     for i in range(n_test):
-        if kernel_fn is None:
+        if value_type == "unweighted":
             s = shapley_unweighted_single(D, Z_test[i], K)
-        elif n_perms is None:
+        elif value_type == "dup":
             s = shapley_dup_single(D, Z_test[i], K, kernel_fn, scaler)
-        else:
+        elif value_type == "mc":
             s = shapley_mc_single(D, Z_test[i], K, kernel_fn, n_perms)
+        elif value_type == "bf":
+            s = shapley_bf_single(D, Z_test[i], K, kernel_fn)
+        else:
+            raise ValueError(f"Invalid value_type: {value_type}")
         shapley_values += s
 
     return shapley_values / n_test
+
+
+def shapley_bf_single(D, z_test, K, kernel_fn):
+    """
+    Compute KNN Shapley values using brute force enumeration of all subsets.
+    """
+    n = len(D)
+    if n == 0 or n < K:  # Ensure we have enough data points
+        return np.array([])
+    
+    # Initialize Shapley values for each training point
+    shapley_values = np.zeros(n)
+    
+    x_test, y_test = z_test
+    
+    # Compute number of classes
+    unique_labels = set(y for _, y in D)
+    C = len(unique_labels)
+    
+    # Precompute combinatorial terms
+    comb_terms = {size: 1/math.comb(n-1, size) for size in range(n)}
+    
+    # For each training point, compute Shapley value
+    for point_idx in range(n):
+        # Initialize sum of marginal contributions
+        marginal_sum = 0
+        
+        # Indices excluding current point
+        indices_excluding_point = [j for j in range(n) if j != point_idx]
+        
+        # Loop through all possible subset sizes
+        for size in range(0, n):
+            # Generate all subsets of given size from indices_excluding_point
+            for subset in itertools.combinations(indices_excluding_point, size):
+                # Calculate utility without current point
+                subset = list(subset)
+                X_subset = [D[i][0] for i in subset]
+                y_subset = [D[i][1] for i in subset]
+                util_without_point = get_knn_acc(X_subset, y_subset, [x_test], [y_test], K, kernel_fn, C)
+
+                # Calculate utility with current point
+                subset_with_point = subset + [point_idx]
+                X_subset_with_point = [D[i][0] for i in subset_with_point]
+                y_subset_with_point = [D[i][1] for i in subset_with_point]
+                util_with_point = get_knn_acc(X_subset_with_point, y_subset_with_point, [x_test], [y_test], K, kernel_fn, C)
+                
+                # Calculate marginal contribution and add to sum
+                marginal = util_with_point - util_without_point
+                marginal_sum += marginal * comb_terms[size]
+        
+        # Shapley value for current point is average of marginal contributions
+        shapley_values[point_idx] += marginal_sum / n
+    
+    return shapley_values
     
 
 def shapley_unweighted_single(D, z_test, K):
