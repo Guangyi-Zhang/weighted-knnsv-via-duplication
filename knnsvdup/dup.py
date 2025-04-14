@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import itertools
+import bisect
 
 from knnsvdup.helper import distance, approx_harmonic_sum, get_knn_acc
 
@@ -274,23 +275,21 @@ def shapley_mc_single(D, z_test, K, kernel_fn, n_perms=1000):
         perm = np.random.permutation(n)
         
         # For each position in the permutation, calculate marginal contribution
-        subset = []  # Keep track of indices in the coalition so far
+        sorted_subset = []  # Maintain a sorted list of (distance, index) tuples
         utility_prev = 1 / C  # Default prediction without any points
         
         for pos, idx in enumerate(perm):
-            # Add current index to the subset
-            subset.append(idx)
-
+            # Insert current point into sorted list using bisect
+            current_dist = distances[idx]
+            insert_pos = bisect.bisect_left(sorted_subset, (current_dist, idx))
+            sorted_subset.insert(insert_pos, (current_dist, idx))
+            
             # Keep only the K nearest neighbors
-            if len(subset) > K:
-                # Sort subset by distance
-                subset_dist = [(distances[i], i) for i in subset]
-                sorted_subset = [i for _, i in sorted(subset_dist)]
-                
-                # Get K nearest neighbors from the subset
-                knn_indices = sorted_subset[:K]
-            else:
-                knn_indices = subset
+            if len(sorted_subset) > K:
+                sorted_subset = sorted_subset[:K]
+            
+            # Get K nearest neighbors from the subset
+            knn_indices = [i for _, i in sorted_subset]
             
             # Calculate utility with the current coalition
             weighted_sum = sum(weights[i] * y_match[i] for i in knn_indices)
