@@ -120,14 +120,14 @@ def shapley_unweighted_single(D, z_test, K):
     idx_n = sorted_dxy_idx[-1]
     
     # Compute sum_{j=1}^{n-1} 1/(j+1)
-    harmonic_sum1 = sum(1/(j+1) for j in range(1, n))
-    harmonic_sum2 = 1 + harmonic_sum1 # equals to sum(1/j for j in range(1, n+1))
+    harmonic_sum = approx_harmonic_sum(K)
+    harmonic_sum_minus_1 = harmonic_sum - 1
     
     # Average label match for the first n-1 points
     avg_match_n_minus_1 = sum(y_match[:-1]) / (n-1)
     
     # Compute base case s_n
-    s[idx_n] = (1/n) * (y_match[-1] - avg_match_n_minus_1) * harmonic_sum1 + (y_match[-1] - 1/C) / n
+    s[idx_n] = (1/n) * (y_match[-1] - avg_match_n_minus_1) * harmonic_sum_minus_1 + (y_match[-1] - 1/C) / n
     
     # Recursive calculation from 2nd farthest to nearest
     for j in range(n-2, -1, -1):
@@ -139,7 +139,7 @@ def shapley_unweighted_single(D, z_test, K):
         adjustment = (1/K) * ((min(K, i) * (n-1) / i) - K)
         
         # Compute the difference in recursive formula
-        term = (y_match[j] - y_match[j+1]) / (n-1) * (harmonic_sum2 + adjustment)
+        term = (y_match[j] - y_match[j+1]) / (n-1) * (harmonic_sum + adjustment)
         
         s[idx_i] = s[idx_i_plus_1] + term
         
