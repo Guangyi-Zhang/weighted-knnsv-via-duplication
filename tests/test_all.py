@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 from functools import partial
 
-from knnsvdup.helper import distance, kernel_value, approx_harmonic_sum
+from knnsvdup.helper import distance, kernel_value, approx_harmonic_sum, get_knn_acc
 from knnsvdup.dup import shapley
 
 
@@ -44,6 +44,30 @@ def test_harmonic_sum():
         real += 1/i
         sums_real.append(real)
     assert np.allclose(sums, sums_real, atol=1e-07)
+
+
+def test_get_knn_acc():
+    kernel_fn = lambda d: 1
+
+    # Setup training data
+    X_train = np.array([[0.0], [1.0], [2.0], [3.0]])
+    y_train = np.array([0, 0, 1, 1])
+    
+    # Setup validation data
+    X_val = np.array([[0.5], [2.5]])
+    y_val = np.array([0, 1])
+    
+    # Test with K=1
+    acc_k1 = get_knn_acc(X_train, y_train, X_val, y_val, K=1, kernel_fn=kernel_fn)
+    assert acc_k1 == 1.0  # Both test points should be classified correctly with K=1
+    
+    # Test with K=3
+    acc_k3 = get_knn_acc(X_train, y_train, X_val, y_val, K=3, kernel_fn=kernel_fn)
+    assert np.isclose(acc_k3, 0.666666667)  # Expected: 2/3
+    
+    # Test with empty training set
+    acc_empty = get_knn_acc(np.array([]), np.array([]), X_val, y_val, K=1, kernel_fn=kernel_fn, C=2)
+    assert acc_empty == 0.5  # With 2 unique classes, random accuracy should be 0.5
 
 
 def test_shapley_mc_single():
