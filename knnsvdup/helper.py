@@ -14,6 +14,8 @@ def get_knn_acc(X_train, y_train, X_val, y_val, K, kernel_fn, C=None):
     for i in range(n_val):
         x_test, y_test = X_val[i], y_val[i]
         distances = [distance(x, x_test) for x in X_train]
+        if len(distances) > 0:
+            distances /= max(distances) # normalize the distances
         weights = [kernel_fn(d) for d in distances]
         rank = np.argsort(distances)
         
@@ -71,4 +73,4 @@ def kernel_value(d, sigma):
     """
     Compute the Gaussian kernel value for a given distance.
     """
-    return np.exp(-d**2 / (2 * sigma**2))    
+    return np.exp(-d / (2 * sigma))    

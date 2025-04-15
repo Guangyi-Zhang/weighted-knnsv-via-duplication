@@ -166,12 +166,12 @@ def shapley_dup_single(D, z_test, K, kernel_fn, scaler=1e8):
         return np.array([])
     
     # Calculate distances and sort
-    dxy = [(distance(x, x_test), x, y) for x, y in D]
-    dxy_idx = list(range(len(dxy)))    
-    sorted_dxy_idx = sorted(dxy_idx, key=lambda i: dxy[i][0]) # argsort
+    distances = [distance(x, x_test) for x, _ in D]
+    distances /= max(distances) # normalize the distances
+    sorted_dxy_idx = np.argsort(distances)
     
     # Extract weights and scale to integers
-    w_real = [kernel_fn(dxy[i][0]) for i in sorted_dxy_idx]
+    w_real = [kernel_fn(distances[i]) for i in sorted_dxy_idx]
     w = [math.ceil(w_ * scaler) for w_ in w_real] # rounding to 1 if w < 1/scaler, so n' > K'
     
     # Calculate n' = sum of all weights
@@ -181,7 +181,7 @@ def shapley_dup_single(D, z_test, K, kernel_fn, scaler=1e8):
     K_prime = sum(w[:K])
 
     # Extract label matches (1 if label matches test point, 0 otherwise)
-    y_match = [1 if dxy[i][2] == y_test else 0 for i in sorted_dxy_idx]
+    y_match = [1 if D[i][1] == y_test else 0 for i in sorted_dxy_idx]
     
     # Initialize Shapley values array
     s = np.zeros(n)
@@ -249,15 +249,13 @@ def shapley_mc_single(D, z_test, K, kernel_fn, n_perms=1000):
     n = len(D)
     if n == 0 or n == 1:
         return np.array([])
-    
-    # Calculate distances and corresponding features and labels
-    dxy = [(distance(x, x_test), x, y) for x, y in D]
-    
+
     # Store distances for each point
-    distances = [d for d, _, _ in dxy]
+    distances = [distance(x, x_test) for x, _ in D]
+    distances /= max(distances) # normalize the distances
     
     # Extract label matches (1 if label matches test point, 0 otherwise)
-    y_match = [1 if y == y_test else 0 for _, _, y in dxy]
+    y_match = [1 if y == y_test else 0 for _, y in D]
     
     # Compute weights for each point using the kernel function
     weights = [kernel_fn(d) for d in distances]

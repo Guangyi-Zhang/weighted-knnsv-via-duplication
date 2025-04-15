@@ -17,7 +17,7 @@ def test_shapley_dup():
     kernel_fn = partial(kernel_value, sigma=sigma)
    
     shapley_values = shapley(D, z_test, K=1, value_type="dup", kernel_fn=kernel_fn)
-    answer = [ 4.30470185,  0.59768083, -4.40238268]
+    answer = [ 3.05179835,  1.7752735 , -4.32707184]
 
     assert np.allclose(shapley_values, answer, atol=1e-03)
 
