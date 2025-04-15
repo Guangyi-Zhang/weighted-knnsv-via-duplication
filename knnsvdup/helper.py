@@ -73,4 +73,4 @@ def kernel_value(d, sigma):
     """
     Compute the Gaussian kernel value for a given distance.
     """
-    return np.exp(-d / (2 * sigma))    
+    return np.exp(-d / sigma)    
