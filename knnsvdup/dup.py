@@ -18,6 +18,8 @@ def shapley(D, Z_test, K, value_type="unweighted", kernel_fn=None, scaler=1e8, n
     for i in range(n_test):
         if value_type == "unweighted":
             s = shapley_unweighted_single(D, Z_test[i], K)
+        elif value_type == "scaled":
+            s = shapley_unweighted_single(D, Z_test[i], K, use_scale=True, kernel_fn=kernel_fn)
         elif value_type == "dup":
             s = shapley_dup_single(D, Z_test[i], K, kernel_fn, scaler)
         elif value_type == "mc":
@@ -85,7 +87,7 @@ def shapley_bf_single(D, z_test, K, kernel_fn):
     return shapley_values
     
 
-def shapley_unweighted_single(D, z_test, K):
+def shapley_unweighted_single(D, z_test, K, use_scale=False, kernel_fn=None):
     """
     Compute Shapley values for unweighted KNN using recursive formula.
     
@@ -102,13 +104,13 @@ def shapley_unweighted_single(D, z_test, K):
     if n == 0 or n == 1 or n < K: # assume n >= 2 and n >= K
         return np.array([])
     
-    # Calculate distances and sort
-    dxy = [(distance(x, x_test), x, y) for x, y in D]
-    dxy_idx = list(range(len(dxy)))    
-    sorted_dxy_idx = sorted(dxy_idx, key=lambda i: dxy[i][0]) # argsort
+    # Store distances for each point
+    distances = [distance(x, x_test) for x, _ in D]
+    distances /= max(distances) # normalize the distances
+    sorted_dxy_idx = np.argsort(distances)
     
     # Extract label matches (1 if label matches test point, 0 otherwise)
-    y_match = [1 if dxy[i][2] == y_test else 0 for i in sorted_dxy_idx]
+    y_match = [1 if y == y_test else 0 for _, y in D]
     
     # Initialize Shapley values array
     s = np.zeros(n)
@@ -125,10 +127,10 @@ def shapley_unweighted_single(D, z_test, K):
     harmonic_sum_minus_1 = harmonic_sum - 1
     
     # Average label match for the first n-1 points
-    avg_match_n_minus_1 = sum(y_match[:-1]) / (n-1)
+    avg_match_n_minus_1 = (sum(y_match) - y_match[idx_n]) / (n-1)
     
     # Compute base case s_n
-    s[idx_n] = (1/n) * (y_match[-1] - avg_match_n_minus_1) * harmonic_sum_minus_1 + (y_match[-1] - 1/C) / n
+    s[idx_n] = (1/n) * (y_match[idx_n] - avg_match_n_minus_1) * harmonic_sum_minus_1 + (y_match[idx_n] - 1/C) / n
     
     # Recursive calculation from 2nd farthest to nearest
     for j in range(n-2, -1, -1):
@@ -140,10 +142,17 @@ def shapley_unweighted_single(D, z_test, K):
         adjustment = (1/K) * ((min(K, i) * (n-1) / i) - K)
         
         # Compute the difference in recursive formula
-        term = (y_match[j] - y_match[j+1]) / (n-1) * (harmonic_sum + adjustment)
+        term = (y_match[idx_i] - y_match[idx_i_plus_1]) / (n-1) * (harmonic_sum + adjustment)
         
         s[idx_i] = s[idx_i_plus_1] + term
         
+    # Scale each value by their weights
+    if use_scale:
+        weights = [kernel_fn(d) for d in distances]
+        n_prime = sum(weights)
+        for i in range(n):
+            s[i] = s[i] * weights[i] * n / n_prime
+    
     return s 
 
 
