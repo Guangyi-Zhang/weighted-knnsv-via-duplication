@@ -6,7 +6,7 @@ import bisect
 from knnsvdup.helper import distance, approx_harmonic_sum, get_knn_acc
 
 
-def shapley(D, Z_test, K, value_type="unweighted", kernel_fn=None, scaler=1e8, n_perms=None):
+def shapley(D, Z_test, K, value_type="unweighted", kernel_fn=None, scaler=1e8, n_perms=None, scale_K=False):
     """
     Compute KNN Shapley values for multiple test points.
     """
@@ -21,7 +21,7 @@ def shapley(D, Z_test, K, value_type="unweighted", kernel_fn=None, scaler=1e8, n
         elif value_type == "scaled":
             s = shapley_unweighted_single(D, Z_test[i], K, use_scale=True, kernel_fn=kernel_fn)
         elif value_type == "dup":
-            s = shapley_dup_single(D, Z_test[i], K, kernel_fn, scaler)
+            s = shapley_dup_single(D, Z_test[i], K, kernel_fn, scaler, scale_K)
         elif value_type == "mc":
             s = shapley_mc_single(D, Z_test[i], K, kernel_fn, n_perms)
         elif value_type == "bf":
@@ -156,7 +156,7 @@ def shapley_unweighted_single(D, z_test, K, use_scale=False, kernel_fn=None):
     return s 
 
 
-def shapley_dup_single(D, z_test, K, kernel_fn, scaler=1e8):
+def shapley_dup_single(D, z_test, K, kernel_fn, scaler=1e8, scale_K=False):
     """
     Compute Shapley values for weighted KNN using duplication.
     
@@ -187,7 +187,10 @@ def shapley_dup_single(D, z_test, K, kernel_fn, scaler=1e8):
     n_prime = sum(w)
     
     # Calculate K' = sum of weights for K nearest neighbors
-    K_prime = sum(w[:K])
+    if not scale_K:
+        K_prime = sum(w[:K])
+    else:
+        K_prime = int(K * n_prime / n)
 
     # Extract label matches (1 if label matches test point, 0 otherwise)
     y_match = [1 if D[i][1] == y_test else 0 for i in sorted_dxy_idx]
